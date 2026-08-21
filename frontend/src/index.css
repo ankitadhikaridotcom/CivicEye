@@ -1,0 +1,232 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --color-surv-bg: var(--surv-bg);
+  --color-surv-surface: var(--surv-surface);
+  --color-surv-surface-hover: var(--surv-surface-hover);
+  --color-surv-border: var(--surv-border);
+  --color-surv-border-strong: var(--surv-border-strong);
+  
+  --color-surv-text: var(--surv-text);
+  --color-surv-muted: var(--surv-muted);
+  
+  --color-surv-accent: var(--surv-accent);
+  --color-surv-accent-bg: var(--surv-accent-bg);
+  --color-surv-accent-hover: var(--surv-accent-hover);
+  
+  --color-surv-success: var(--surv-success);
+  --color-surv-success-bg: var(--surv-success-bg);
+  
+  --color-surv-warning: var(--surv-warning);
+  --color-surv-warning-bg: var(--surv-warning-bg);
+  
+  --color-surv-critical: var(--surv-critical);
+  --color-surv-critical-bg: var(--surv-critical-bg);
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Orbitron', sans-serif;
+}
+
+@layer base {
+  :root {
+    /* LIGHT MODE (Default) - Clean, Government Dashboard */
+    --surv-bg: #f1f5f9;
+    --surv-surface: #ffffff;
+    --surv-surface-hover: #f8fafc;
+    --surv-border: rgba(148, 163, 184, 0.3);
+    --surv-border-strong: rgba(148, 163, 184, 0.6);
+    
+    --surv-text: #0f172a;
+    --surv-muted: #64748b;
+    
+    --surv-accent: #2563eb;
+    --surv-accent-bg: rgba(37, 99, 235, 0.1);
+    --surv-accent-hover: rgba(37, 99, 235, 0.15);
+    
+    --surv-success: #16a34a;
+    --surv-success-bg: rgba(22, 163, 74, 0.1);
+    
+    --surv-warning: #d97706;
+    --surv-warning-bg: rgba(217, 119, 6, 0.1);
+    
+    --surv-critical: #dc2626;
+    --surv-critical-bg: rgba(220, 38, 38, 0.1);
+
+    --scan-line-opacity: 0;
+    --grid-opacity: 0.05;
+    --glow-opacity: 0;
+  }
+
+  .dark {
+    /* DARK MODE - Tactical Surveillance Command Center */
+    --surv-bg: #060a13;
+    --surv-surface: #0a0e1a;
+    --surv-surface-hover: #0d1117;
+    --surv-border: rgba(0, 212, 255, 0.15);
+    --surv-border-strong: rgba(0, 212, 255, 0.3);
+    
+    --surv-text: #e2e8f0;
+    --surv-muted: #64748b;
+    
+    --surv-accent: #00d4ff;
+    --surv-accent-bg: rgba(0, 212, 255, 0.08);
+    --surv-accent-hover: rgba(0, 212, 255, 0.15);
+    
+    --surv-success: #10B981;
+    --surv-success-bg: rgba(16, 185, 129, 0.1);
+    
+    --surv-warning: #F59E0B;
+    --surv-warning-bg: rgba(245, 158, 11, 0.1);
+    
+    --surv-critical: #EF4444;
+    --surv-critical-bg: rgba(239, 68, 68, 0.1);
+
+    --scan-line-opacity: 1;
+    --grid-opacity: 0.03;
+    --glow-opacity: 1;
+  }
+
+  body {
+    background-color: var(--surv-bg);
+    color: var(--surv-text);
+    -webkit-font-smoothing: antialiased;
+    font-family: var(--font-sans);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+@layer utilities {
+  /* Scan line overlay effect - Opacity controlled by theme */
+  .scan-lines {
+    position: relative;
+    overflow: hidden;
+  }
+  .scan-lines::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 212, 255, 0.015) 2px,
+      rgba(0, 212, 255, 0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 1;
+    opacity: var(--scan-line-opacity);
+    transition: opacity 0.3s ease;
+  }
+
+  /* Grid overlay background */
+  .grid-overlay {
+    background-image: 
+      linear-gradient(var(--surv-border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--surv-border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-color: transparent;
+  }
+
+  /* Surveillance HUD corners */
+  .hud-corners {
+    position: relative;
+  }
+  .hud-corners::before,
+  .hud-corners::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-color: var(--surv-border-strong);
+    border-style: solid;
+    z-index: 2;
+  }
+  .hud-corners::before {
+    top: 0;
+    left: 0;
+    border-width: 2px 0 0 2px;
+  }
+  .hud-corners::after {
+    bottom: 0;
+    right: 0;
+    border-width: 0 2px 2px 0;
+  }
+
+  /* Pulse ring for live indicators */
+  .pulse-live {
+    position: relative;
+  }
+  .pulse-live::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid var(--surv-success);
+    opacity: 0.4;
+    animation: pulse-expand 2s ease-out infinite;
+  }
+  
+  /* Themed Shadows/Glows */
+  .surv-glow {
+    box-shadow: 0 0 15px var(--surv-accent-bg);
+  }
+}
+
+/* Animations */
+@keyframes data-sweep {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-expand {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+/* Custom scrollbars - Themed */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surv-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--surv-border-strong);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--surv-accent);
+}
+
+/* Leaflet Custom Popups - Themed */
+.leaflet-popup-content-wrapper {
+  background: var(--surv-surface) !important;
+  backdrop-filter: blur(16px) !important;
+  color: var(--surv-text) !important;
+  border: 1px solid var(--surv-border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  line-height: 1.4 !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--surv-surface) !important;
+}
+
+/* Selection style */
+::selection {
+  background: var(--surv-accent-bg);
+  color: var(--surv-text);
+}

@@ -6,86 +6,107 @@ const IssueTable = ({ issues }) => {
   if (!issues || issues.length === 0) return null;
 
   return (
-    <div className="bg-surv-surface rounded-xl border border-surv-border overflow-hidden relative">
-      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-surv-border-strong"></div>
-      <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-surv-border-strong"></div>
-      
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden relative shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-surv-bg border-b border-surv-border text-[9px] font-mono font-bold text-surv-muted uppercase tracking-widest">
-              <th className="px-4 py-3 font-bold">THREAT ID</th>
-              <th className="px-4 py-3 font-bold">CLASSIFICATION</th>
-              <th className="px-4 py-3 font-bold">TELEMETRY</th>
-              <th className="px-4 py-3 font-bold">SEVERITY</th>
-              <th className="px-4 py-3 font-bold">STATUS</th>
-              <th className="px-4 py-3 font-bold text-right">ACTION</th>
+            <tr className="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <th className="px-5 py-3.5">INCIDENT ID</th>
+              <th className="px-5 py-3.5">CLASSIFICATION</th>
+              <th className="px-5 py-3.5">TELEMETRY</th>
+              <th className="px-5 py-3.5">SEVERITY</th>
+              <th className="px-5 py-3.5">STATUS</th>
+              <th className="px-5 py-3.5 text-right">ACTION</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-surv-border/50">
-            {issues.map(issue => (
-              <tr key={issue.id} className="hover:bg-surv-surface-hover transition-colors group">
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded bg-surv-accent-bg border border-surv-border flex items-center justify-center shrink-0">
-                      <Camera size={14} className="text-surv-accent" />
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+            {issues.map(issue => {
+              const id = issue.issueId || issue.id;
+              const type = issue.issueType || issue.type;
+              const rawConf = issue.confidence || 0;
+              const confidencePercent = rawConf <= 1 ? Math.round(rawConf * 100) : Math.round(rawConf);
+              const location = issue.location;
+              const ward = issue.ward || issue.city || '';
+              const timeString = new Date(issue.detectedAt || issue.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              
+              // Normalize Severity
+              const sev = (issue.severity || 'MEDIUM').toUpperCase();
+              let severityStyle = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-350 border-slate-200 dark:border-slate-700';
+              if (sev === 'CRITICAL' || sev === 'HIGH') {
+                severityStyle = 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 border-rose-150 dark:border-rose-900/40';
+              } else if (sev === 'MEDIUM') {
+                severityStyle = 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400 border-amber-150 dark:border-amber-900/40';
+              } else if (sev === 'LOW') {
+                severityStyle = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border-emerald-150 dark:border-emerald-900/40';
+              }
+
+              // Normalize Status
+              const status = (issue.status || 'OPEN').toUpperCase();
+              let statusStyle = 'bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+              if (status === 'RESOLVED' || status === 'AI VERIFIED' || status === 'CLOSED') {
+                statusStyle = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border-emerald-150 dark:border-emerald-900/40';
+              } else if (status === 'ASSIGNED' || status === 'IN PROGRESS') {
+                statusStyle = 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400 border-indigo-150 dark:border-indigo-900/40';
+              } else if (status === 'OPEN') {
+                statusStyle = 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400 border-rose-150 dark:border-rose-900/40';
+              }
+
+              return (
+                <tr key={id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors group text-xs text-slate-700 dark:text-slate-350">
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-center shrink-0">
+                        <Camera size={14} className="text-indigo-650 dark:text-indigo-455" />
+                      </div>
+                      <div>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white block uppercase tracking-wider">{id}</span>
+                        <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest">{issue.cameraId || 'UPLOAD-MNG'}</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="font-mono font-bold text-[10px] text-surv-text block uppercase tracking-wider">{issue.id}</span>
-                      <span className="text-[9px] font-mono text-surv-accent opacity-60 uppercase tracking-widest">{issue.cameraId}</span>
+                  </td>
+                  
+                  <td className="px-5 py-4">
+                    <span className="font-semibold text-slate-950 dark:text-white block uppercase tracking-wider">{type}</span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      AI CONF: <span className="text-indigo-600 dark:text-indigo-400 font-mono font-bold">{confidencePercent}%</span>
+                    </span>
+                  </td>
+                  
+                  <td className="px-5 py-4">
+                    <div className="flex flex-col gap-1 max-w-xs sm:max-w-md">
+                      <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-medium">
+                        <MapPin size={12} className="text-slate-400 shrink-0" /> 
+                        <span className="truncate">{location} {ward ? `(${ward})` : ''}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
+                        <Clock size={11} className="text-slate-400 shrink-0" /> {timeString}
+                      </span>
                     </div>
-                  </div>
-                </td>
-                
-                <td className="px-4 py-3">
-                  <span className="text-[11px] font-mono font-bold text-surv-text block uppercase tracking-wider">{issue.type}</span>
-                  <span className="text-[9px] font-mono text-surv-muted block mt-0.5 tracking-wide">
-                    AI CONFIDENCE: <span className="text-surv-accent font-bold">{issue.confidence}%</span>
-                  </span>
-                </td>
-                
-                <td className="px-4 py-3">
-                  <div className="flex flex-col gap-1">
-                    <span className="flex items-center gap-1.5 text-[9px] font-mono text-surv-muted uppercase tracking-wide">
-                      <MapPin size={10} className="text-surv-accent opacity-50" /> {issue.location}, {issue.city}
+                  </td>
+                  
+                  <td className="px-5 py-4">
+                    <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider border inline-block ${severityStyle}`}>
+                      {sev}
                     </span>
-                    <span className="flex items-center gap-1.5 text-[9px] font-mono text-surv-muted uppercase tracking-wide">
-                      <Clock size={10} className="text-surv-accent opacity-50" /> {new Date(issue.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </td>
+                  
+                  <td className="px-5 py-4">
+                    <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider border inline-block ${statusStyle}`}>
+                      {status}
                     </span>
-                  </div>
-                </td>
-                
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-widest border inline-block ${
-                    issue.severity === 'Critical' ? 'bg-surv-critical-bg text-surv-critical border-surv-critical' :
-                    issue.severity === 'High' ? 'bg-surv-warning-bg text-surv-warning border-surv-warning' :
-                    issue.severity === 'Medium' ? 'bg-surv-accent-bg text-surv-accent border-surv-border' :
-                    'bg-surv-bg text-surv-muted border-surv-border'
-                  }`}>
-                    {issue.severity}
-                  </span>
-                </td>
-                
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-0.5 rounded text-[8px] font-mono font-bold uppercase tracking-widest border inline-block ${
-                    issue.status === 'Resolved' ? 'bg-surv-success-bg text-surv-success border-surv-border' :
-                    issue.status === 'Assigned' ? 'bg-surv-warning-bg text-surv-warning border-surv-warning' :
-                    'bg-surv-critical-bg text-surv-critical border-surv-critical'
-                  }`}>
-                    {issue.status}
-                  </span>
-                </td>
-                
-                <td className="px-4 py-3 text-right">
-                  <Link 
-                    to={`/issues/${issue.id}`}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-surv-bg hover:bg-surv-accent-bg text-surv-accent text-[9px] font-mono font-bold rounded border border-surv-border transition-colors uppercase tracking-wider group-hover:border-surv-border-strong"
-                  >
-                    INTEL <ArrowUpRight size={12} />
-                  </Link>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  
+                  <td className="px-5 py-4 text-right">
+                    <Link 
+                      to={`/issues/${id}`}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-50 hover:bg-indigo-50 dark:bg-slate-800 dark:hover:bg-slate-750 text-indigo-600 dark:text-indigo-400 text-[10px] font-semibold rounded-xl border border-slate-200 dark:border-slate-750 transition-colors uppercase tracking-wider"
+                    >
+                      Inspect <ArrowUpRight size={12} />
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

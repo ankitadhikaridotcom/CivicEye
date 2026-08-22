@@ -5,6 +5,7 @@ import L from 'leaflet';
 import { mockCities, mockCameras, mockTouristAreas } from '../../data/mockData';
 import { Maximize2, Layers, Flame, Camera, AlertCircle, CheckCircle2, ChevronRight, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { apiService } from '../../utils/api';
 
 // Fix Leaflet's default icon path issues
 delete L.Icon.Default.prototype._getIconUrl;
@@ -45,11 +46,74 @@ const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', dar
   const [mounted, setMounted] = useState(false);
   const [activeLayer, setActiveLayer] = useState('issues'); // 'issues' | 'cameras' | 'tourist' | 'heatmap'
   const [mapStyle, setMapStyle] = useState('dark'); // 'dark' | 'voyager' | 'satellite'
+  const [citiesData, setCitiesData] = useState(mockCities);
   const navigate = useNavigate();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    const fetchAndMergeIssues = async () => {
+      try {
+        const issues = await apiService.getIssues();
+        
+        // Map issues to cities
+        const updatedCities = mockCities.map(city => {
+          // Find all active issues (status is not CLOSED or AI VERIFIED) in this city
+          const cityIssues = issues.filter(issue => {
+            const isMatch = issue.location && issue.location.toLowerCase().includes(city.name.toLowerCase());
+            const isActive = issue.status && !['CLOSED', 'AI VERIFIED', 'RESOLVED'].includes(issue.status);
+            return isMatch && isActive;
+          });
+          
+          const activeCount = cityIssues.length;
+          
+          // Count categories from active issues
+          const garbageCount = cityIssues.filter(i => i.issueType === 'Garbage').length;
+          const encroachmentCount = cityIssues.filter(i => i.issueType === 'Encroachment').length;
+          const dumpingCount = cityIssues.filter(i => i.issueType === 'Illegal Dumping').length;
+          const obstructionCount = cityIssues.filter(i => i.issueType === 'Road Obstruction').length;
+          
+          // Determine severity
+          let severity = 'LOW';
+          if (activeCount > 0) {
+            if (cityIssues.some(i => i.severity === 'HIGH')) {
+              severity = 'HIGH';
+            } else if (cityIssues.some(i => i.severity === 'MEDIUM')) {
+              severity = 'MEDIUM';
+            }
+          } else {
+            // Fallback to baseline default severity matching the legend and new mock data
+            severity = city.severity || 'LOW';
+          }
+          
+          // Base score calculation
+          let score = 100 - (activeCount * 12);
+          if (score < 40) score = 42;
+          
+          return {
+            ...city,
+            activeIssues: activeCount || city.activeIssues,
+            garbage: garbageCount || city.garbage,
+            encroachment: encroachmentCount || city.encroachment,
+            dumping: dumpingCount || city.dumping,
+            obstruction: obstructionCount || city.obstruction,
+            severity: severity,
+            score: Math.min(city.score, score)
+          };
+        });
+        
+        setCitiesData(updatedCities);
+      } catch (err) {
+        console.error('Error fetching issues for map:', err);
+      }
+    };
+    
+    if (mounted) {
+      fetchAndMergeIssues();
+    }
+  }, [mounted]);
 
   if (!mounted) {
     return (
@@ -83,7 +147,7 @@ const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', dar
         <MapCenterer selectedCity={selectedCity} />
 
         {/* 1. CIVIC ISSUES LAYER */}
-        {(activeLayer === 'issues' || activeLayer === 'heatmap') && mockCities.map((city) => {
+        {(activeLayer === 'issues' || activeLayer === 'heatmap') && citiesData.map((city) => {
           const isSelected = selectedCity === city.name;
           const color = getSeverityColor(city.severity);
           

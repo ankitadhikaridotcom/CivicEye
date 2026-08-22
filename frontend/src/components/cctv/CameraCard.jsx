@@ -1,69 +1,137 @@
-import React from 'react';
-import { Camera, MapPin, Eye, Activity, ShieldAlert, Cpu } from 'lucide-react';
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { 
+  Camera, MapPin, Eye, Activity, ShieldAlert, Cpu, Maximize2, 
+  Settings, ExternalLink, Image, AlertTriangle, ShieldCheck
+} from 'lucide-react';
 
 const CameraCard = ({ camera }) => {
+  const navigate = useNavigate();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const isLive = camera.status === 'LIVE';
+  const hasIncident = camera.aiStatus && camera.aiStatus.includes('Detected');
+
+  const triggerSnapshot = () => {
+    alert(`Snapshot captured successfully from ${camera.name} (${camera.id}) at ${new Date().toLocaleTimeString()}. Saved to archive.`);
+  };
+
   return (
-    <div className="bg-surv-surface rounded-xl border border-surv-border overflow-hidden relative group hover:border-surv-border-strong transition-all">
-      <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-surv-border-strong z-20"></div>
-      <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-surv-border-strong z-20"></div>
-      
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden relative group hover:border-indigo-500 transition-all flex flex-col h-full shadow-sm">
       {/* Video Feed Area */}
-      <div className="relative aspect-video bg-surv-bg border-b border-surv-border">
-        <div className="absolute inset-0 scan-lines z-10 pointer-events-none"></div>
+      <div className="relative aspect-video bg-slate-950 border-b border-slate-200 dark:border-slate-800 overflow-hidden">
         <img 
-          src={camera.url} 
+          src={camera.imagePlaceholder} 
           alt={camera.name}
-          className="w-full h-full object-cover opacity-80 mix-blend-luminosity group-hover:opacity-100 transition-opacity"
+          className={`w-full h-full object-cover transition-opacity ${
+            isLive ? 'opacity-85 group-hover:opacity-100' : 'opacity-30 grayscale'
+          }`}
         />
         
         {/* Status overlays */}
-        <div className="absolute top-2 left-2 z-20 flex gap-2">
-          <span className="bg-surv-success-bg backdrop-blur-md text-surv-success text-[8px] font-mono font-bold px-1.5 py-0.5 rounded flex items-center gap-1 border border-surv-border uppercase tracking-widest shadow-lg">
-            <span className="w-1.5 h-1.5 rounded-full bg-surv-success animate-pulse"></span> REC
+        <div className="absolute top-2 left-2 z-20 flex flex-wrap gap-1.5">
+          <span className={`backdrop-blur-md text-[8px] font-mono font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 border uppercase tracking-wider shadow-lg ${
+            isLive 
+              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+              : 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isLive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+            {camera.status}
           </span>
-          {camera.activeIssues > 0 && (
-            <span className="bg-surv-critical-bg backdrop-blur-md text-surv-critical text-[8px] font-mono font-bold px-1.5 py-0.5 rounded flex items-center gap-1 border border-surv-critical uppercase tracking-widest animate-pulse shadow-lg">
-              <ShieldAlert size={10} /> THREAT: {camera.activeIssues}
+
+          {hasIncident && (
+            <span className="bg-rose-500/20 backdrop-blur-md text-rose-400 text-[8px] font-mono font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 border border-rose-500/35 uppercase tracking-wider animate-pulse shadow-lg">
+              <ShieldAlert size={10} /> {camera.type.toUpperCase()}: {Math.round(camera.confidence * 100)}%
             </span>
           )}
         </div>
         
         {/* AI Overlays (Simulated bounding boxes) */}
-        {camera.activeIssues > 0 && (
-          <div className="absolute inset-0 z-10 m-4 border-2 border-surv-critical bg-surv-critical-bg opacity-80 rounded pointer-events-none">
-            <div className="bg-surv-critical text-white text-[7px] font-mono px-1 inline-block absolute -top-3 -left-[2px] uppercase tracking-wider">AI DETECT: 94%</div>
+        {hasIncident && isLive && (
+          <div className="absolute inset-0 z-10 m-4 border-2 border-rose-500 bg-rose-500/5 rounded pointer-events-none">
+            <div className="bg-rose-600 text-white text-[7px] font-mono px-1 inline-block absolute -top-3 -left-[2px] uppercase tracking-wider rounded">
+              AI DETECT: {camera.type} ({Math.round(camera.confidence * 100)}%)
+            </div>
           </div>
         )}
 
-        <div className="absolute bottom-2 right-2 z-20 text-[8px] font-mono text-surv-accent bg-surv-surface/90 backdrop-blur px-1 rounded border border-surv-border uppercase tracking-widest">
-          CAM-{camera.id.slice(-4)}
+        <div className="absolute bottom-2 right-2 z-20 text-[9px] font-mono font-bold text-slate-350 bg-slate-900/80 backdrop-blur-sm px-2 py-0.5 rounded-md border border-slate-800 uppercase tracking-wider">
+          {camera.id}
         </div>
       </div>
 
       {/* Info Area */}
-      <div className="p-3">
-        <div className="flex justify-between items-start mb-2">
-          <div>
-            <h3 className="font-mono font-bold text-[11px] text-surv-text uppercase tracking-wider">{camera.name}</h3>
-            <p className="text-[9px] text-surv-muted font-mono flex items-center gap-1 mt-0.5 tracking-wide uppercase">
-              <MapPin size={10} className="text-surv-accent opacity-50" /> {camera.city}
-            </p>
+      <div className="p-4 flex-1 flex flex-col justify-between">
+        <div className="mb-3">
+          <div className="flex justify-between items-start gap-2">
+            <h3 className="font-bold text-xs text-slate-800 dark:text-white uppercase tracking-tight line-clamp-1">{camera.name}</h3>
+            <span className="p-1 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-800 text-slate-400 shrink-0">
+              <Camera size={12} />
+            </span>
           </div>
-          <div className="w-7 h-7 rounded bg-surv-accent-bg border border-surv-border flex items-center justify-center text-surv-accent">
-            <Camera size={14} />
-          </div>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+            <MapPin size={10} className="text-slate-400" /> {camera.location} • {camera.ward}
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-surv-border">
-          <div className="text-center bg-surv-bg rounded py-1 border border-surv-border">
-            <div className="text-[8px] font-mono text-surv-muted uppercase tracking-widest mb-0.5">AI ENGINE</div>
-            <div className="text-[9px] font-mono font-bold text-surv-success flex justify-center items-center gap-1"><Cpu size={10}/> ACTIVE</div>
-          </div>
-          <div className="text-center bg-surv-bg rounded py-1 border border-surv-border">
-            <div className="text-[8px] font-mono text-surv-muted uppercase tracking-widest mb-0.5">THREATS</div>
-            <div className={`text-[9px] font-mono font-bold ${camera.activeIssues > 0 ? 'text-surv-critical' : 'text-surv-text'}`}>
-              {camera.activeIssues} FOUND
+        <div>
+          {/* Diagnostic Grid */}
+          <div className="grid grid-cols-2 gap-2 text-[10px] bg-slate-50 dark:bg-slate-850 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+            <div>
+              <span className="text-slate-400 block mb-0.5">AI Engine</span>
+              <span className={`font-semibold flex items-center gap-1 ${isLive ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`}>
+                <Cpu size={10} /> {isLive ? 'ACTIVE' : 'STANDBY'}
+              </span>
             </div>
+            <div>
+              <span className="text-slate-400 block mb-0.5">Analytic Status</span>
+              <span className={`font-semibold ${hasIncident ? 'text-rose-500 font-bold' : 'text-emerald-500'}`}>
+                {camera.aiStatus}
+              </span>
+            </div>
+          </div>
+
+          {/* Action overlay */}
+          <div className="grid grid-cols-4 gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <button 
+              onClick={triggerSnapshot}
+              title="Capture Snapshot"
+              className="p-2 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 rounded-xl border border-slate-200 dark:border-slate-750 flex items-center justify-center transition-colors"
+            >
+              <Image size={12} />
+            </button>
+            <button 
+              onClick={() => alert(`Showing camera properties for ${camera.id}`)}
+              title="Camera Settings"
+              className="p-2 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 rounded-xl border border-slate-200 dark:border-slate-750 flex items-center justify-center transition-colors"
+            >
+              <Settings size={12} />
+            </button>
+            <Link 
+              to="/ai-analysis"
+              title="AI Analysis Hub"
+              className="p-2 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 rounded-xl border border-slate-200 dark:border-slate-750 flex items-center justify-center transition-colors"
+            >
+              <Cpu size={12} />
+            </Link>
+            <button 
+              onClick={() => {
+                if (hasIncident) {
+                  // Direct to issues list filtered by city
+                  navigate(`/issues?city=${camera.location}`);
+                } else {
+                  alert("No active violations detected on this stream.");
+                }
+              }}
+              title="Inspect Violations"
+              className={`p-2 rounded-xl border flex items-center justify-center transition-colors ${
+                hasIncident 
+                  ? 'bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-600 dark:bg-rose-950/20 dark:border-rose-900/40 dark:text-rose-400' 
+                  : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-750 text-slate-400'
+              }`}
+            >
+              <Maximize2 size={12} />
+            </button>
           </div>
         </div>
       </div>

@@ -16,6 +16,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const AI_SERVICE_URL = (process.env.AI_SERVICE_URL || 'https://civiceye-ai-service.onrender.com').trim().replace(/\/+$/, '');
 
+console.log('==================================================');
+console.log(`[CONFIG] Node Backend Initializing...`);
+console.log(`[CONFIG] AI Service Target URL: ${AI_SERVICE_URL}`);
+console.log('==================================================');
+
 // Configure Cloudinary if credentials exist
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
   cloudinary.config({

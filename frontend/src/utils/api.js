@@ -9,7 +9,7 @@ if (!rawApiUrl.endsWith('/api')) {
 }
 const BASE_URL = rawApiUrl;
 
-let rawAiUrl = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000';
+let rawAiUrl = import.meta.env.VITE_AI_SERVICE_URL || 'https://civiceye-ai-service.onrender.com';
 const AI_BASE_URL = rawAiUrl.trim().replace(/\/+$/, '');
 
 export const getApiUrl = (path) => `${BASE_URL}${path}`;

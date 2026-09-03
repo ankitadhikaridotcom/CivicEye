@@ -19,7 +19,7 @@ const workflowSteps = [
 ];
 
 const Dashboard = () => {
-  const { selectedCity = 'All Uttarakhand', language = 'en' } = useOutletContext() || {};
+  const { selectedCity = 'All Uttarakhand', setSelectedCity, language = 'en' } = useOutletContext() || {};
   const isHindi = language === 'hi';
   
   const [stats, setStats] = useState({
@@ -50,7 +50,7 @@ const Dashboard = () => {
       try {
         setLoading(true);
         const [statsData, alertsData] = await Promise.all([
-          apiService.getStats(),
+          apiService.getStats(selectedCity),
           apiService.getAlerts()
         ]);
         setStats(statsData);
@@ -67,7 +67,7 @@ const Dashboard = () => {
     // Poll stats every 10 seconds for real-time COMMAND CENTER updates
     const interval = setInterval(fetchDashboardData, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedCity]);
 
   return (
     <div className="space-y-6 pb-12">
@@ -185,7 +185,7 @@ const Dashboard = () => {
             </Link>
           </div>
           <div className="flex-1 relative z-0">
-            <UttarakhandMap selectedCity={selectedCity} />
+            <UttarakhandMap selectedCity={selectedCity} onSelectCity={setSelectedCity} />
           </div>
         </div>
 

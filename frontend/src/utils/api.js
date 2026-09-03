@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { stats as mockStats, mockIssues, mockNotifications } from '../data/mockData';
 
-const BASE_URL = 'http://localhost:5000/api';
-const AI_BASE_URL = 'http://localhost:8000';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const AI_BASE_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000';
 
 export const getApiUrl = (path) => `${BASE_URL}${path}`;
 export const getFileUrl = (path) => {
@@ -10,8 +10,7 @@ export const getFileUrl = (path) => {
   if (path.startsWith('http')) return path;
   // If it's a relative path, resolve to our servers
   if (path.startsWith('/uploads') || path.startsWith('/results')) {
-    // If backend/FastAPI is hosted, serve from FastAPI (port 8000) or Express (port 5000)
-    return `http://localhost:8000${path}`;
+    return `${AI_BASE_URL}${path}`;
   }
   return path;
 };
@@ -24,9 +23,9 @@ const api = axios.create({
 
 export const apiService = {
   // Dashboard Stats
-  getStats: async () => {
+  getStats: async (city) => {
     try {
-      const response = await api.get('/dashboard/stats');
+      const response = await api.get('/dashboard/stats', { params: { city } });
       return response.data;
     } catch (error) {
       console.warn('API error fetching stats, using mock data:', error.message);

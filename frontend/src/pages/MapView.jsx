@@ -5,7 +5,7 @@ import { Map as MapIcon, Crosshair, AlertTriangle, Video, MapPin, Search, Layers
 import { mockIssues, mockCameras } from '../data/mockData';
 
 export const MapView = () => {
-  const { selectedCity = 'All Uttarakhand', language = 'en' } = useOutletContext() || {};
+  const { selectedCity = 'All Uttarakhand', setSelectedCity, language = 'en' } = useOutletContext() || {};
   const isHindi = language === 'hi';
   const [activeLayer, setActiveLayer] = useState('all');
 
@@ -67,6 +67,7 @@ export const MapView = () => {
 
         <UttarakhandMap 
           selectedCity={selectedCity} 
+          onSelectCity={setSelectedCity}
           showIssues={activeLayer === 'all' || activeLayer === 'issues'}
           showCameras={activeLayer === 'all' || activeLayer === 'cameras'}
         />

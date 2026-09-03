@@ -9,6 +9,12 @@ const LiveMonitoring = () => {
   const isHindi = language === 'hi';
   const [searchTerm, setSearchTerm] = useState('');
 
+  const filteredCameras = mockCameras.filter(camera => {
+    const matchesCity = selectedCity === 'All Uttarakhand' || camera.city.toLowerCase() === selectedCity.toLowerCase();
+    const matchesSearch = camera.location.toLowerCase().includes(searchTerm.toLowerCase()) || camera.id.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesCity && matchesSearch;
+  });
+
   return (
     <div className="space-y-5 pb-12">
       {/* Header */}
@@ -25,7 +31,7 @@ const LiveMonitoring = () => {
                 {isHindi ? 'लाइव फीड ग्रिड' : 'LIVE FEED GRID'}
               </h1>
               <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-surv-accent-bg text-surv-accent border border-surv-border uppercase tracking-wider opacity-80">
-                {mockCameras.length} STREAMS
+                {filteredCameras.length} STREAMS
               </span>
             </div>
             <p className="text-[10px] text-surv-muted font-mono tracking-wide uppercase">
@@ -36,7 +42,7 @@ const LiveMonitoring = () => {
           <div className="flex items-center gap-2">
             <div className="px-3 py-1.5 bg-surv-bg rounded-lg border border-surv-border text-center">
               <div className="text-[8px] font-mono font-bold text-surv-muted uppercase tracking-widest">ONLINE</div>
-              <div className="text-sm font-mono font-bold text-surv-accent">{mockCameras.length}</div>
+              <div className="text-sm font-mono font-bold text-surv-accent">{filteredCameras.length}</div>
             </div>
             <div className="px-3 py-1.5 bg-surv-bg rounded-lg border border-surv-border text-center">
               <div className="text-[8px] font-mono font-bold text-surv-muted uppercase tracking-widest">STATUS</div>
@@ -46,7 +52,7 @@ const LiveMonitoring = () => {
         </div>
       </div>
 
-      {mockCameras.length === 0 ? (
+      {filteredCameras.length === 0 ? (
         <div className="p-16 text-center bg-surv-surface rounded-xl border border-surv-border max-w-lg mx-auto relative overflow-hidden">
           <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-surv-border-strong"></div>
           <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-surv-border-strong"></div>
@@ -74,7 +80,7 @@ const LiveMonitoring = () => {
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {mockCameras.map((camera) => <CameraCard key={camera.id} camera={camera} />)}
+            {filteredCameras.map((camera) => <CameraCard key={camera.id} camera={camera} />)}
           </div>
         </>
       )}

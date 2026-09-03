@@ -45,7 +45,7 @@ const getSeverityColor = (severity) => {
 const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', darkTheme = true, onSelectCity }) => {
   const [mounted, setMounted] = useState(false);
   const [activeLayer, setActiveLayer] = useState('issues'); // 'issues' | 'cameras' | 'tourist' | 'heatmap'
-  const [mapStyle, setMapStyle] = useState('dark'); // 'dark' | 'voyager' | 'satellite'
+  const [mapStyle, setMapStyle] = useState('white'); // Default to White GIS
   const [citiesData, setCitiesData] = useState(mockCities);
   const navigate = useNavigate();
 
@@ -123,20 +123,29 @@ const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', dar
     );
   }
 
+  const highSeverityCities = citiesData.filter(c => c.severity === 'HIGH' && c.activeIssues > 0).map(c => c.name);
+  const mediumSeverityCities = citiesData.filter(c => c.severity === 'MEDIUM' && c.activeIssues > 0).map(c => c.name);
+  const lowSeverityCities = citiesData.filter(c => c.activeIssues > 0 && c.severity === 'LOW').map(c => c.name);
+  const cleanCities = citiesData.filter(c => c.activeIssues === 0).map(c => c.name);
+
   const tileLayers = {
-    dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    white: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', // Clean White Map
     voyager: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
     satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
   };
 
   return (
-    <div className="h-full w-full relative rounded-2xl overflow-hidden shadow-inner border border-slate-800 bg-[#0B1120] z-0">
+    <div className="h-full w-full relative rounded-2xl overflow-hidden shadow-inner border border-slate-200 bg-[#F8FAFC] z-0">
       <MapContainer 
         center={[30.0668, 79.0193]} 
         zoom={8} 
         scrollWheelZoom={true}
         className="h-full w-full z-0"
         zoomControl={false}
+        maxBounds={[[28.4, 77.2], [31.6, 81.3]]} // Strictly restrict bounds to Uttarakhand region
+        maxBoundsViscosity={1.0}
+        minZoom={7}
+        maxZoom={14}
       >
         <TileLayer
           attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap'
@@ -147,7 +156,7 @@ const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', dar
         <MapCenterer selectedCity={selectedCity} />
 
         {/* 1. CIVIC ISSUES LAYER */}
-        {(activeLayer === 'issues' || activeLayer === 'heatmap') && citiesData.map((city) => {
+        {(activeLayer === 'issues' || activeLayer === 'heatmap') && citiesData.filter(city => city.activeIssues > 0).map((city) => {
           const isSelected = selectedCity === city.name;
           const color = getSeverityColor(city.severity);
           
@@ -176,6 +185,13 @@ const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', dar
                   weight: isSelected ? 3 : 2
                 }}
                 radius={isSelected ? 12 : 8}
+                eventHandlers={{
+                  click: () => {
+                    if (onSelectCity) {
+                      onSelectCity(city.name);
+                    }
+                  }
+                }}
               >
                 <Popup>
                   <div className="p-2 min-w-[240px] text-white">
@@ -306,11 +322,11 @@ const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', dar
       {/* Floating Map Controls & Layer Selector (Top Right) */}
       <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
         {/* Layer Switcher */}
-        <div className="bg-[#0F172A]/90 backdrop-blur-md border border-slate-700/80 rounded-xl p-1 shadow-2xl flex items-center gap-1 text-xs">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-1 shadow-2xl flex items-center gap-1 text-xs">
           <button
             onClick={() => setActiveLayer('issues')}
             className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
-              activeLayer === 'issues' ? 'bg-brand-blue text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              activeLayer === 'issues' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-650 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <AlertCircle size={13} />
@@ -319,7 +335,7 @@ const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', dar
           <button
             onClick={() => setActiveLayer('cameras')}
             className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
-              activeLayer === 'cameras' ? 'bg-brand-blue text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              activeLayer === 'cameras' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-650 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <Camera size={13} />
@@ -328,7 +344,7 @@ const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', dar
           <button
             onClick={() => setActiveLayer('tourist')}
             className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
-              activeLayer === 'tourist' ? 'bg-brand-blue text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              activeLayer === 'tourist' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-650 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <CheckCircle2 size={13} />
@@ -337,7 +353,7 @@ const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', dar
           <button
             onClick={() => setActiveLayer('heatmap')}
             className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
-              activeLayer === 'heatmap' ? 'bg-brand-blue text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              activeLayer === 'heatmap' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-650 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <Flame size={13} />
@@ -346,22 +362,22 @@ const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', dar
         </div>
 
         {/* Map Basemap Style Switcher */}
-        <div className="bg-[#0F172A]/90 backdrop-blur-md border border-slate-700/80 rounded-xl p-1 shadow-xl flex items-center self-end gap-1 text-[11px]">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl p-1 shadow-xl flex items-center self-end gap-1 text-[11px]">
           <button
-            onClick={() => setMapStyle('dark')}
-            className={`px-2 py-1 rounded-md font-medium ${mapStyle === 'dark' ? 'bg-slate-800 text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}`}
+            onClick={() => setMapStyle('white')}
+            className={`px-2 py-1 rounded-md font-medium transition-all ${mapStyle === 'white' ? 'bg-slate-100 text-indigo-650 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
           >
-            Night GIS
+            White GIS
           </button>
           <button
             onClick={() => setMapStyle('voyager')}
-            className={`px-2 py-1 rounded-md font-medium ${mapStyle === 'voyager' ? 'bg-slate-800 text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}`}
+            className={`px-2 py-1 rounded-md font-medium transition-all ${mapStyle === 'voyager' ? 'bg-slate-100 text-indigo-650 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
           >
             Day Light
           </button>
           <button
             onClick={() => setMapStyle('satellite')}
-            className={`px-2 py-1 rounded-md font-medium ${mapStyle === 'satellite' ? 'bg-slate-800 text-cyan-400 font-bold' : 'text-slate-400 hover:text-white'}`}
+            className={`px-2 py-1 rounded-md font-medium transition-all ${mapStyle === 'satellite' ? 'bg-slate-100 text-indigo-650 font-bold' : 'text-slate-500 hover:text-slate-800'}`}
           >
             Satellite
           </button>
@@ -369,35 +385,35 @@ const UttarakhandMap = ({ selectedCity = 'All Uttarakhand', height = '100%', dar
       </div>
 
       {/* Floating State Monitoring Legend (Bottom Left) */}
-      <div className="absolute bottom-4 left-4 bg-[#0F172A]/95 backdrop-blur-md p-3.5 rounded-2xl border border-slate-700/80 shadow-2xl z-[1000] text-xs text-white max-w-xs">
-        <div className="flex items-center justify-between font-bold text-slate-200 mb-2 border-b border-slate-800 pb-1.5">
+      <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-md p-3.5 rounded-2xl border border-slate-200 shadow-2xl z-[1000] text-xs text-slate-800 max-w-xs">
+        <div className="flex items-center justify-between font-bold text-slate-900 mb-2 border-b border-slate-100 pb-1.5">
           <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-brand-emerald animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             Uttarakhand State GIS Telemetry
           </span>
-          <span className="text-[10px] text-slate-400 font-mono">9 ULBs</span>
+          <span className="text-[10px] text-slate-500 font-mono">9 ULBs</span>
         </div>
         <div className="space-y-1.5 text-[11px]">
-          <div className="flex items-center justify-between text-slate-300">
+          <div className="flex items-center justify-between text-slate-650">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></span>
               <span>High Severity Zone</span>
             </div>
-            <span className="font-bold text-red-400">Dehradun, Haldwani</span>
+            <span className="font-bold text-red-500">{highSeverityCities.length > 0 ? highSeverityCities.join(', ') : 'None'}</span>
           </div>
-          <div className="flex items-center justify-between text-slate-300">
+          <div className="flex items-center justify-between text-slate-650">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></span>
               <span>Moderate Monitoring</span>
             </div>
-            <span className="font-bold text-amber-400">Haridwar, Roorkee</span>
+            <span className="font-bold text-amber-500">{mediumSeverityCities.length > 0 ? mediumSeverityCities.join(', ') : 'None'}</span>
           </div>
-          <div className="flex items-center justify-between text-slate-300">
+          <div className="flex items-center justify-between text-slate-650">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>
               <span>Clean / Low Incidents</span>
             </div>
-            <span className="font-bold text-emerald-400">Nainital, Mussoorie</span>
+            <span className="font-bold text-emerald-500">{[...lowSeverityCities, ...cleanCities].length > 0 ? [...lowSeverityCities, ...cleanCities].join(', ') : 'None'}</span>
           </div>
         </div>
       </div>

@@ -5,7 +5,7 @@ import CivicEyeLogo from '../ui/CivicEyeLogo';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../contexts/ThemeContext';
 
-const Topbar = ({ onMenuClick, selectedCity, setSelectedCity, language, setLanguage }) => {
+const Topbar = ({ onMenuClick, selectedCity, setSelectedCity, language, setLanguage, citiesData = mockCities }) => {
   const [cityDropdownOpen, setCityDropdownOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -135,7 +135,7 @@ const Topbar = ({ onMenuClick, selectedCity, setSelectedCity, language, setLangu
                   </button>
                   <div className="h-px bg-surv-border my-1 mx-1"></div>
                   <div className="max-h-60 overflow-y-auto custom-scrollbar">
-                    {mockCities.map(city => (
+                    {citiesData.map(city => (
                       <button 
                         key={city.id}
                         onClick={() => { setSelectedCity(city.name); setCityDropdownOpen(false); }}

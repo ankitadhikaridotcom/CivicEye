@@ -7,6 +7,7 @@ const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
+const cloudinary = require('cloudinary').v2;
 
 // Load environment variables
 dotenv.config();
@@ -14,6 +15,33 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+
+// Configure Cloudinary if credentials exist
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+  console.log('Cloudinary integration: ACTIVATED');
+} else {
+  console.log('Cloudinary integration: DEACTIVATED (using local storage)');
+}
+
+// Helper function to download files from FastAPI for Cloudinary upload
+const downloadFile = async (url, outputPath) => {
+  const writer = fs.createWriteStream(outputPath);
+  const response = await axios({
+    url,
+    method: 'GET',
+    responseType: 'stream'
+  });
+  response.data.pipe(writer);
+  return new Promise((resolve, reject) => {
+    writer.on('finish', resolve);
+    writer.on('error', reject);
+  });
+};
 
 // Middleware
 app.use(cors());
@@ -38,8 +66,8 @@ const upload = multer({
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
-    console.log('Successfully connected to MongoDB.');
-    seedDatabase();
+    console.log('Successfully connected to MongoDB Atlas.');
+    // seedDatabase(); // Commented out so uploaded issues persist in MongoDB across restarts
   })
   .catch(err => {
     console.error('MongoDB connection error:', err);
@@ -109,6 +137,7 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
   }
 
   const tempFilePath = req.file.path;
+  const isCloudinaryConfigured = !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
   
   try {
     const confidence = req.body.confidence || req.query.confidence || 0.15;
@@ -128,11 +157,53 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
       }
     });
 
-    // Clean up temp file
-    fs.unlinkSync(tempFilePath);
+    let originalImageUrl = response.data.originalImageUrl;
+    let annotatedImageUrl = response.data.annotatedImageUrl;
 
-    // Return FastAPI prediction output
-    return res.json(response.data);
+    // If Cloudinary is configured, upload both images
+    if (isCloudinaryConfigured && response.data.success) {
+      try {
+        console.log('Cloudinary is configured. Uploading images to Cloudinary...');
+        // 1. Upload original image (we still have it in tempFilePath)
+        const originalCloudUrl = await cloudinary.uploader.upload(tempFilePath, {
+          folder: 'civicwatch/original'
+        });
+        originalImageUrl = originalCloudUrl.secure_url;
+
+        // 2. Download annotated image from FastAPI and upload it
+        const annotatedTempPath = path.join(__dirname, 'temp_uploads', `temp_annotated_${Date.now()}_${req.file.originalname}`);
+        const fullAnnotatedUrl = `${AI_SERVICE_URL}${response.data.annotatedImageUrl}`;
+        
+        console.log(`Downloading annotated image from: ${fullAnnotatedUrl}`);
+        await downloadFile(fullAnnotatedUrl, annotatedTempPath);
+        
+        console.log('Uploading annotated image to Cloudinary...');
+        const annotatedCloudUrl = await cloudinary.uploader.upload(annotatedTempPath, {
+          folder: 'civicwatch/annotated'
+        });
+        annotatedImageUrl = annotatedCloudUrl.secure_url;
+
+        // Clean up temporary annotated file
+        if (fs.existsSync(annotatedTempPath)) {
+          fs.unlinkSync(annotatedTempPath);
+        }
+        console.log('Cloudinary uploads completed successfully.');
+      } catch (cloudError) {
+        console.error('Failed to upload to Cloudinary, falling back to local paths:', cloudError.message);
+      }
+    }
+
+    // Clean up original temp file
+    if (fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+
+    // Return the response with either Cloudinary URLs or Local URLs
+    return res.json({
+      ...response.data,
+      originalImageUrl,
+      annotatedImageUrl
+    });
 
   } catch (error) {
     console.error('Error forwarding to AI service:', error.message);
@@ -152,6 +223,26 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
       fs.copyFileSync(req.file.path, destOriginal);
       // Simulating drawing a box
       fs.copyFileSync(req.file.path, destAnnotated); // for fallback, just copy original
+
+      let originalImageUrl = `/uploads/${filename}`;
+      let annotatedImageUrl = `/results/result_${filename}`;
+
+      // Upload fallback images to Cloudinary if configured
+      if (isCloudinaryConfigured) {
+        try {
+          const originalCloudUrl = await cloudinary.uploader.upload(destOriginal, {
+            folder: 'civicwatch/original'
+          });
+          originalImageUrl = originalCloudUrl.secure_url;
+
+          const annotatedCloudUrl = await cloudinary.uploader.upload(destAnnotated, {
+            folder: 'civicwatch/annotated'
+          });
+          annotatedImageUrl = annotatedCloudUrl.secure_url;
+        } catch (cloudError) {
+          console.error('Failed to upload fallback images to Cloudinary:', cloudError.message);
+        }
+      }
       
       return res.json({
         success: true,
@@ -164,8 +255,8 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
         ],
         count: 1,
         severity: "HIGH",
-        originalImageUrl: `/uploads/${filename}`,
-        annotatedImageUrl: `/results/result_${filename}`,
+        originalImageUrl,
+        annotatedImageUrl,
         note: "Fallback response generated by Node backend (AI service offline)"
       });
     } catch (e) {
@@ -248,15 +339,32 @@ app.get('/api/issues', async (req, res) => {
     if (status) filter.status = status;
     if (severity) filter.severity = severity;
     if (department) filter.department = department;
-    if (ward) filter.ward = ward;
     if (type) filter.issueType = type;
 
-    if (search) {
+    if (ward) {
       filter.$or = [
-        { issueId: { $regex: search, $options: 'i' } },
-        { location: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { ward: { $regex: ward, $options: 'i' } },
+        { location: { $regex: ward, $options: 'i' } }
       ];
+    }
+
+    if (search) {
+      const searchFilter = {
+        $or: [
+          { issueId: { $regex: search, $options: 'i' } },
+          { location: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } }
+        ]
+      };
+      if (filter.$or) {
+        filter.$and = [
+          { $or: filter.$or },
+          searchFilter
+        ];
+        delete filter.$or;
+      } else {
+        filter.$or = searchFilter.$or;
+      }
     }
 
     const issues = await Issue.find(filter).sort({ detectedAt: -1 });
@@ -470,19 +578,30 @@ app.post('/api/issues/:id/verify', upload.single('image'), async (req, res) => {
 // 7. GET /api/dashboard/stats - Returns dynamic stats
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
-    const totalIssues = await Issue.countDocuments();
-    const activeIssues = await Issue.countDocuments({ status: { $in: ['OPEN', 'ASSIGNED', 'IN PROGRESS'] } });
-    const resolvedToday = await Issue.countDocuments({ status: 'RESOLVED' });
-    const closedIssues = await Issue.countDocuments({ status: 'CLOSED' });
-    const highPriority = await Issue.countDocuments({ severity: 'HIGH', status: { $ne: 'CLOSED' } });
+    const { city } = req.query;
+    let query = {};
+    if (city && city !== 'All Uttarakhand') {
+      query = {
+        $or: [
+          { ward: { $regex: city, $options: 'i' } },
+          { location: { $regex: city, $options: 'i' } }
+        ]
+      };
+    }
+
+    const totalIssues = await Issue.countDocuments(query);
+    const activeIssues = await Issue.countDocuments({ ...query, status: { $in: ['OPEN', 'ASSIGNED', 'IN PROGRESS'] } });
+    const resolvedToday = await Issue.countDocuments({ ...query, status: 'RESOLVED' });
+    const closedIssues = await Issue.countDocuments({ ...query, status: 'CLOSED' });
+    const highPriority = await Issue.countDocuments({ ...query, severity: 'HIGH', status: { $ne: 'CLOSED' } });
     
     // AI verified rate
-    const aiVerified = await Issue.countDocuments({ 'history.status': 'AI VERIFIED' });
-    const totalProcessed = await Issue.countDocuments({ status: { $in: ['CLOSED', 'AI VERIFIED'] } });
+    const aiVerified = await Issue.countDocuments({ ...query, 'history.status': 'AI VERIFIED' });
+    const totalProcessed = await Issue.countDocuments({ ...query, status: { $in: ['CLOSED', 'AI VERIFIED'] } });
     const aiVerifiedClosures = totalProcessed > 0 ? Math.round((aiVerified / totalProcessed) * 100) : 100;
     
     // AI detections (count everything created by system AI upload)
-    const aiDetectionsToday = await Issue.countDocuments({ cameraId: { $ne: 'MANUAL-LOG' } });
+    const aiDetectionsToday = await Issue.countDocuments({ ...query, cameraId: { $ne: 'MANUAL-LOG' } });
 
     res.json({
       totalIssues: totalIssues,
@@ -491,8 +610,8 @@ app.get('/api/dashboard/stats', async (req, res) => {
       resolvedToday: resolvedToday,
       aiDetectionsToday: aiDetectionsToday,
       aiVerifiedClosures: aiVerifiedClosures,
-      camerasOnline: 18,
-      departmentsActive: 4,
+      camerasOnline: city && city !== 'All Uttarakhand' ? 2 : 18,
+      departmentsActive: city && city !== 'All Uttarakhand' ? 2 : 4,
       avgSlaResponseTime: totalIssues > 0 ? '42 min' : '0 min'
     });
   } catch (error) {

@@ -650,6 +650,10 @@ app.patch('/api/alerts/:id/read', async (req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`Node Express Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Node Express Server running on port ${PORT}`);
+  });
+}
+
+module.exports = app;

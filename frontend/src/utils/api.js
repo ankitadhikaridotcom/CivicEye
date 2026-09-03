@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { stats as mockStats, mockIssues, mockNotifications } from '../data/mockData';
 
-let rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-rawApiUrl = rawApiUrl.trim().replace(/\/+$/, '');
+const API_URL = import.meta.env.VITE_API_URL || 'https://civiceye-h7ee.onrender.com';
+
+let rawApiUrl = API_URL.trim().replace(/\/+$/, '');
 if (!rawApiUrl.endsWith('/api')) {
   rawApiUrl = `${rawApiUrl}/api`;
 }

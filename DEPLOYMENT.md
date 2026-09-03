@@ -67,14 +67,14 @@ This guide covers deploying the entire **CivicEye AI Command Center** (Python AI
    - `CLOUDINARY_API_KEY` = `173988344655914`
    - `CLOUDINARY_API_SECRET` = `_qhpmYjmwqzdXNjBEIKXsBb49PM`
 5. Click **Create Web Service**.
-6. Copy your deployed Backend URL once live (e.g., `https://civiceye-backend.onrender.com`).
+6. Copy your deployed Backend URL once live (e.g., `https://civiceye-h7ee.onrender.com`).
 
 ---
 
 ## ── STEP 4: Update Frontend API URL & Deploy (Vercel) ──
 
 1. In your code, update `frontend/src/utils/api.js`:
-   - Change `BASE_URL` from `http://localhost:5000/api` to `https://civiceye-backend.onrender.com/api`
+   - Change `BASE_URL` from `http://localhost:5000/api` to `https://civiceye-h7ee.onrender.com/api`
 2. Push changes to GitHub:
    ```bash
    git add .
@@ -94,7 +94,7 @@ This guide covers deploying the entire **CivicEye AI Command Center** (Python AI
 ## 🎉 YOUR FULL STACK LIVE SYSTEM IS NOW ONLINE!
 
 - **Frontend App**: `https://civiceye.vercel.app`
-- **Backend API**: `https://civiceye-backend.onrender.com/api/issues`
+- **Backend API**: `https://civiceye-h7ee.onrender.com/api/issues`
 - **AI YOLO Detection**: `https://civiceye-ai-service.onrender.com/predict`
 - **Database**: MongoDB Atlas Cloud
 - **Media CDN**: Cloudinary Cloud Storage

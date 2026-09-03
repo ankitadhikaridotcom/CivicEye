@@ -1,8 +1,15 @@
 import axios from 'axios';
 import { stats as mockStats, mockIssues, mockNotifications } from '../data/mockData';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const AI_BASE_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000';
+let rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+rawApiUrl = rawApiUrl.trim().replace(/\/+$/, '');
+if (!rawApiUrl.endsWith('/api')) {
+  rawApiUrl = `${rawApiUrl}/api`;
+}
+const BASE_URL = rawApiUrl;
+
+let rawAiUrl = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000';
+const AI_BASE_URL = rawAiUrl.trim().replace(/\/+$/, '');
 
 export const getApiUrl = (path) => `${BASE_URL}${path}`;
 export const getFileUrl = (path) => {

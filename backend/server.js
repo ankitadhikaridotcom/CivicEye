@@ -14,7 +14,16 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const AI_SERVICE_URL = (process.env.AI_SERVICE_URL || 'https://civiceye-ai-service.onrender.com').trim().replace(/\/+$/, '');
+const getAiServiceUrl = () => {
+  let url = process.env.AI_SERVICE_URL;
+  // If in Render/Production or if env variable contains localhost/127.0.0.1, enforce production URL
+  if (!url || ((process.env.NODE_ENV === 'production' || process.env.RENDER) && (url.includes('localhost') || url.includes('127.0.0.1')))) {
+    url = 'https://civiceye-ai-service.onrender.com';
+  }
+  return url.trim().replace(/\/+$/, '');
+};
+
+const AI_SERVICE_URL = getAiServiceUrl();
 
 console.log('==================================================');
 console.log(`[CONFIG] Node Backend Initializing...`);
@@ -155,8 +164,9 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
     });
     formData.append('confidence', Number(confidence));
 
-    console.log(`Forwarding image to FastAPI: ${AI_SERVICE_URL}/predict with confidence ${confidence}`);
-    const response = await axios.post(`${AI_SERVICE_URL}/predict`, formData, {
+    const finalUrl = `${AI_SERVICE_URL}/predict`;
+    console.log("AI REQUEST URL:", finalUrl);
+    const response = await axios.post(finalUrl, formData, {
       headers: {
         ...formData.getHeaders()
       }
@@ -458,8 +468,9 @@ app.post('/api/issues/:id/verify', upload.single('image'), async (req, res) => {
     });
     formData.append('confidence', Number(confidence));
 
-    console.log(`Verifying issue via FastAPI: ${AI_SERVICE_URL}/predict with confidence ${confidence}`);
-    const response = await axios.post(`${AI_SERVICE_URL}/predict`, formData, {
+    const finalUrl = `${AI_SERVICE_URL}/predict`;
+    console.log("AI REQUEST URL:", finalUrl);
+    const response = await axios.post(finalUrl, formData, {
       headers: {
         ...formData.getHeaders()
       }

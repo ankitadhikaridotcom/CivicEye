@@ -27,7 +27,9 @@ const AI_SERVICE_URL = getAiServiceUrl();
 
 console.log('==================================================');
 console.log(`[CONFIG] Node Backend Initializing...`);
+console.log(`[CONFIG] Deploy Version: v2.0.0-no-fallback`);
 console.log(`[CONFIG] AI Service Target URL: ${AI_SERVICE_URL}`);
+console.log(`[CONFIG] Fake fallback detections: DISABLED`);
 console.log('==================================================');
 
 // Configure Cloudinary if credentials exist
@@ -144,7 +146,7 @@ async function seedDatabase() {
   }
 }
 
-// 1. POST /api/detect - Runs image through YOLO AI Service (or fallback if offline)
+// 1. POST /api/detect - Forwards image to Python YOLO AI Service for real detection (NO fake fallback)
 app.post('/api/detect', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, error: 'No image file uploaded' });

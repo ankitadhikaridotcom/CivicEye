@@ -69,35 +69,37 @@ class CivicDetector:
             else:
                 print(f"ERROR: YOLO model not found at {model_path}")
 
-    def detect(self, image_path, output_path, conf_threshold=0.15, imgsz=416):
+    def detect(self, image_path, output_path, conf_threshold=0.15, imgsz=416, t_save_sec=0.0, req_start_time=None):
         """
         Detects garbage in the image using the real CivicWatch_FINAL_best.pt model,
         draws bounding boxes, and saves the annotated image to output_path.
         Returns: (success, detections, count, severity)
         """
-        t_req_start = time.time()
-        mem_before = get_process_memory_mb()
-        print(f"\n[TIMING] request received at {time.strftime('%H:%M:%S')}")
-        print(f"[MEMORY] before inference: {mem_before} MB")
+        t_req_start = req_start_time if req_start_time is not None else time.time()
 
-        # Step 1: Read/Decode Image
+        # Step 1: Print save image timing (measured in main.py)
+        print(f"[TIMING] save image: {t_save_sec:.2f} sec")
+
+        # Step 2: Read/Decode Image
         t_decode_start = time.time()
         image = cv2.imread(image_path)
+        t_decode_sec = time.time() - t_decode_start
+        print(f"[TIMING] decode image: {t_decode_sec:.2f} sec")
+
         if image is None:
             print(f"Failed to read image at {image_path}")
             return False, [], 0, "LOW"
 
         height, width = image.shape[:2]
-        t_decode_end = time.time()
-        t_decode_sec = round(t_decode_end - t_decode_start, 4)
-        print(f"[TIMING] image decode: {t_decode_sec} sec (Original resolution: {width}x{height}, Target imgsz: {imgsz})")
-
         detections = []
 
         if ULTRALYTICS_AVAILABLE and self.model is not None:
             try:
-                # Step 2: YOLO Single Inference Pass
-                print(f"[DIAGNOSTIC] Running SINGLE YOLO inference pass on {image_path} with conf=0.01, imgsz={imgsz}, device='cpu'...")
+                # Memory before YOLO
+                mem_before_yolo = get_process_memory_mb()
+                print(f"[MEMORY] before YOLO: {mem_before_yolo:.2f} MB")
+
+                # Step 3: YOLO Single Inference Pass
                 t_infer_start = time.time()
 
                 if TORCH_AVAILABLE:
@@ -111,12 +113,15 @@ class CivicDetector:
                 with context_mgr:
                     results = self.model(image_path, conf=0.01, imgsz=imgsz, device='cpu', verbose=False)
 
-                t_infer_end = time.time()
-                t_infer_sec = round(t_infer_end - t_infer_start, 4)
-                print(f"[TIMING] YOLO inference: {t_infer_sec} sec")
+                t_infer_sec = time.time() - t_infer_start
+                print(f"[TIMING] YOLO inference: {t_infer_sec:.2f} sec")
 
-                # Step 3: Annotation & Filtering
-                t_annot_start = time.time()
+                # Memory after YOLO
+                mem_after_yolo = get_process_memory_mb()
+                print(f"[MEMORY] after YOLO: {mem_after_yolo:.2f} MB")
+
+                # Step 4: Post-processing & Filtering
+                t_post_start = time.time()
                 annotated_img = image.copy()
                 raw_detections_count = 0
                 raw_list = []
@@ -149,26 +154,7 @@ class CivicDetector:
                                 }
                             })
 
-                            # Draw bounding box (Red)
-                            cv2.rectangle(annotated_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 3)
-                            label = f"Garbage: {conf:.1%}"
-                            cv2.putText(annotated_img, label, (int(x1), int(y1) - 10), 
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-
-                print(f"[DIAGNOSTIC 2] Number of raw YOLO detections BEFORE filtering: {raw_detections_count}")
-                for idx, item in enumerate(raw_list):
-                    print(f"[DIAGNOSTIC 3] Raw Detection #{idx+1} -> Class ID: {item['cls_id']}, Class Name: '{item['class_name']}', Confidence: {item['confidence']}")
-
-                # Save annotated image with JPEG quality 85 for speed
-                cv2.imwrite(output_path, annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                t_annot_end = time.time()
-                t_annot_sec = round(t_annot_end - t_annot_start, 4)
-                print(f"[TIMING] annotation: {t_annot_sec} sec")
-
                 count = len(detections)
-                print(f"[DIAGNOSTIC 4] Number of detections AFTER confidence filtering (threshold={conf_threshold}): {count}")
-
-                # Determine severity based on count
                 if count >= 3:
                     severity = "HIGH"
                 elif count >= 1:
@@ -176,16 +162,40 @@ class CivicDetector:
                 else:
                     severity = "LOW"
 
-                # Step 4: Cleanup & Memory Benchmarks
+                t_post_sec = time.time() - t_post_start
+                print(f"[TIMING] postprocess: {t_post_sec:.2f} sec")
+
+                # Step 5: Bounding Box Annotation
+                t_annot_start = time.time()
+                for det in detections:
+                    bbox = det["bbox"]
+                    conf = det["confidence"]
+                    x1, y1, x2, y2 = bbox["x1"], bbox["y1"], bbox["x2"], bbox["y2"]
+                    cv2.rectangle(annotated_img, (x1, y1), (x2, y2), (0, 0, 255), 3)
+                    label = f"Garbage: {conf:.1%}"
+                    cv2.putText(annotated_img, label, (x1, y1 - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                t_annot_sec = time.time() - t_annot_start
+                print(f"[TIMING] annotation: {t_annot_sec:.2f} sec")
+
+                # Step 6: Write annotated image
+                t_write_start = time.time()
+                cv2.imwrite(output_path, annotated_img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                t_write_sec = time.time() - t_write_start
+                print(f"[TIMING] cv2.imwrite: {t_write_sec:.2f} sec")
+
+                # Memory after annotation
+                mem_after_annot = get_process_memory_mb()
+                print(f"[MEMORY] after annotation: {mem_after_annot:.2f} MB")
+
+                # Step 7: Cleanup & Total Calculation
                 del results
                 del annotated_img
                 del image
                 gc.collect()
 
-                mem_after = get_process_memory_mb()
-                t_req_total = round(time.time() - t_req_start, 4)
-                print(f"[MEMORY] after inference: {mem_after} MB")
-                print(f"[TIMING] total request: {t_req_total} sec")
+                t_total_sec = time.time() - t_req_start
+                print(f"[TIMING] total: {t_total_sec:.2f} sec")
 
                 return True, detections, count, severity
 

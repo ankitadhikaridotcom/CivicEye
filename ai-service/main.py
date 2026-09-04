@@ -5,7 +5,7 @@ import time
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from services.detector import CivicDetector
+from services.detector import CivicDetector, get_process_memory_mb
 
 # Initialize FastAPI App
 app = FastAPI(
@@ -76,7 +76,10 @@ async def predict(
     image: UploadFile = File(...),
     confidence: float = Form(0.10)
 ):
+    req_start_time = time.time()
+    mem_start = get_process_memory_mb()
     print(f"\n==================== [AI-SERVICE /predict REQUEST] ====================")
+    print(f"[MEMORY] request start: {mem_start:.2f} MB")
     print(f"[DIAGNOSTIC 1] Confidence threshold received by FastAPI: {confidence} (type: {type(confidence).__name__})")
     print(f"[DIAGNOSTIC 1] Uploaded image filename: {image.filename}, Content-Type: {image.content_type}")
 
@@ -97,11 +100,13 @@ async def predict(
     result_path = os.path.join(RESULT_DIR, result_filename)
 
     # Save uploaded file
+    t_save_start = time.time()
     try:
         with open(upload_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save uploaded image: {str(e)}")
+    t_save_sec = time.time() - t_save_start
 
     # Run detection
     try:
@@ -109,7 +114,9 @@ async def predict(
             upload_path, 
             result_path, 
             conf_threshold=confidence,
-            imgsz=416
+            imgsz=416,
+            t_save_sec=t_save_sec,
+            req_start_time=req_start_time
         )
         
         if not success:

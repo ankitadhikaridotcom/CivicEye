@@ -26,7 +26,7 @@ export const getFileUrl = (path) => {
 // Axios instance
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 60000,
+  timeout: 180000,
 });
 
 export const apiService = {
@@ -99,6 +99,7 @@ export const apiService = {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        timeout: 180000,
       });
       return response.data;
     } catch (error) {
@@ -118,6 +119,7 @@ export const apiService = {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        timeout: 180000,
       });
       return response.data;
     } catch (error) {

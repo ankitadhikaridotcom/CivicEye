@@ -171,7 +171,7 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
     const timeoutMs = 180000;
 
     console.log("[NODE] Starting AI request");
-    console.log("[NODE] AI_SERVICE_URL:", finalUrl);
+    console.log("[NODE] AI service URL:", finalUrl);
     console.log("[NODE] Request timeout:", timeoutMs);
 
     let response;
@@ -184,18 +184,19 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
       });
 
       const elapsedMs = Date.now() - startTime;
+      console.log("[NODE] AI response received");
       console.log("[NODE] AI response status:", response.status);
-      console.log("[NODE] AI response duration:", elapsedMs);
-      console.log("[NODE] AI response JSON:", JSON.stringify(response.data, null, 2));
+      console.log("[NODE] AI response data:", JSON.stringify(response.data, null, 2));
+      console.log("[NODE] AI request duration:", elapsedMs);
 
     } catch (axiosErr) {
       const elapsedMs = Date.now() - startTime;
-      console.error("=== [NODE] AI SERVICE CALL FAILED ===");
-      console.error("[NODE] Axios error code:", axiosErr.code);
-      console.error("[NODE] Axios error message:", axiosErr.message);
-      console.error("[NODE] Axios error response status:", axiosErr.response?.status);
-      console.error("[NODE] Axios error response data:", axiosErr.response?.data);
-      console.error("[NODE] AI response duration:", elapsedMs);
+      console.error("[NODE] AI REQUEST ERROR");
+      console.error("[NODE] error.message:", axiosErr.message);
+      console.error("[NODE] error.code:", axiosErr.code);
+      console.error("[NODE] error.response?.status:", axiosErr.response?.status);
+      console.error("[NODE] error.response?.data:", axiosErr.response?.data);
+      console.error("[NODE] AI request duration:", elapsedMs);
       throw axiosErr;
     }
 

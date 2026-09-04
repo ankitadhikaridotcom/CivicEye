@@ -50,7 +50,7 @@ def read_root():
 @app.post("/predict")
 async def predict(
     image: UploadFile = File(...),
-    confidence: float = Form(0.15)
+    confidence: float = Form(0.10)
 ):
     print(f"\n==================== [AI-SERVICE /predict REQUEST] ====================")
     print(f"[DIAGNOSTIC 1] Confidence threshold received by FastAPI: {confidence} (type: {type(confidence).__name__})")

@@ -13,7 +13,7 @@ const AIAnalysis = () => {
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [confidenceThreshold, setConfidenceThreshold] = useState(0.35);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.10);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [error, setError] = useState(null);

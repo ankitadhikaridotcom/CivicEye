@@ -157,7 +157,7 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
   const startTime = Date.now();
 
   try {
-    const confidence = req.body.confidence || req.query.confidence || 0.15;
+    const confidence = req.body.confidence || req.query.confidence || 0.10;
     
     // Send file to Python FastAPI AI Service
     const formData = new FormData();
@@ -168,31 +168,34 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
     formData.append('confidence', Number(confidence));
 
     const finalUrl = `${AI_SERVICE_URL}/predict`;
-    console.log("[NODE] Starting AI request to:", finalUrl);
+    const timeoutMs = 180000;
+
+    console.log("[NODE] Starting AI request");
+    console.log("[NODE] AI_SERVICE_URL:", finalUrl);
+    console.log("[NODE] Request timeout:", timeoutMs);
 
     let response;
     try {
-      // Increased timeout to 180,000 ms (3 minutes) to allow Python CPU inference on Render to complete
       response = await axios.post(finalUrl, formData, {
         headers: {
           ...formData.getHeaders()
         },
-        timeout: 180000
+        timeout: timeoutMs
       });
 
       const elapsedMs = Date.now() - startTime;
-      console.log(`[NODE] AI response status: ${response.status} ${response.statusText}`);
-      console.log(`[NODE] AI response time: ${elapsedMs} ms`);
+      console.log("[NODE] AI response status:", response.status);
+      console.log("[NODE] AI response duration:", elapsedMs);
       console.log("[NODE] AI response JSON:", JSON.stringify(response.data, null, 2));
 
     } catch (axiosErr) {
       const elapsedMs = Date.now() - startTime;
       console.error("=== [NODE] AI SERVICE CALL FAILED ===");
-      console.error("[NODE] AI error message:", axiosErr.message);
-      console.error("[NODE] AI error code:", axiosErr.code);
-      console.error("[NODE] AI HTTP status:", axiosErr.response?.status);
-      console.error("[NODE] AI HTTP response data:", axiosErr.response?.data);
-      console.error(`[NODE] AI elapsed request time: ${elapsedMs} ms`);
+      console.error("[NODE] Axios error code:", axiosErr.code);
+      console.error("[NODE] Axios error message:", axiosErr.message);
+      console.error("[NODE] Axios error response status:", axiosErr.response?.status);
+      console.error("[NODE] Axios error response data:", axiosErr.response?.data);
+      console.error("[NODE] AI response duration:", elapsedMs);
       throw axiosErr;
     }
 

@@ -42,48 +42,33 @@ class CivicDetector:
         # If real YOLO model is available
         if ULTRALYTICS_AVAILABLE and self.model is not None:
             try:
-                print(f"[DIAGNOSTIC] Starting YOLO inference on {image_path} with conf_threshold={conf_threshold}")
-                # Run YOLO inference with minimal threshold (0.01) to capture raw detections for diagnostics
-                raw_results = self.model(image_path, conf=0.01)
-                
+                print(f"[DIAGNOSTIC] Running SINGLE YOLO inference pass on {image_path} with conf=0.01...")
+                # Run YOLO inference EXACTLY ONCE with minimal threshold (0.01) to capture all raw candidates
+                results = self.model(image_path, conf=0.01)
+                annotated_img = image.copy()
+
                 raw_detections_count = 0
                 raw_list = []
-                for result in raw_results:
+
+                for result in results:
                     boxes = result.boxes
                     for box in boxes:
                         raw_detections_count += 1
+                        x1, y1, x2, y2 = box.xyxy[0].tolist()
                         conf = float(box.conf[0])
                         cls = int(box.cls[0])
                         class_name = self.model.names.get(cls, f"Class_{cls}") if hasattr(self.model, 'names') else f"Class_{cls}"
+
                         raw_list.append({
                             "cls_id": cls,
                             "class_name": class_name,
                             "confidence": round(conf, 4)
                         })
-                
-                print(f"[DIAGNOSTIC 2] Number of YOLO detections BEFORE custom filtering: {raw_detections_count}")
-                for idx, item in enumerate(raw_list):
-                    print(f"[DIAGNOSTIC 3] Raw Detection #{idx+1} -> Class ID: {item['cls_id']}, Class Name: '{item['class_name']}', Confidence: {item['confidence']}")
 
-                # Now process results with the actual conf_threshold
-                results = self.model(image_path, conf=conf_threshold)
-                annotated_img = image.copy()
-                
-                # Process results
-                for result in results:
-                    boxes = result.boxes
-                    for box in boxes:
-                        # Get box coordinates
-                        x1, y1, x2, y2 = box.xyxy[0].tolist()
-                        conf = float(box.conf[0])
-                        cls = int(box.cls[0])
-                        
-                        # Only detect Class 0 (Garbage) as specified
-                        if cls == 0:
-                            class_name = "Garbage"
-                            
+                        # Filter by Class 0 (Garbage) and conf >= conf_threshold
+                        if cls == 0 and conf >= conf_threshold:
                             detections.append({
-                                "class": class_name,
+                                "class": "Garbage",
                                 "confidence": round(conf, 3),
                                 "bbox": {
                                     "x1": int(x1),
@@ -92,17 +77,21 @@ class CivicDetector:
                                     "y2": int(y2)
                                 }
                             })
-                            
+
                             # Draw bounding box (Red)
                             cv2.rectangle(annotated_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 3)
                             label = f"Garbage: {conf:.1%}"
                             cv2.putText(annotated_img, label, (int(x1), int(y1) - 10), 
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                
+
+                print(f"[DIAGNOSTIC 2] Number of raw YOLO detections BEFORE filtering: {raw_detections_count}")
+                for idx, item in enumerate(raw_list):
+                    print(f"[DIAGNOSTIC 3] Raw Detection #{idx+1} -> Class ID: {item['cls_id']}, Class Name: '{item['class_name']}', Confidence: {item['confidence']}")
+
                 cv2.imwrite(output_path, annotated_img)
                 count = len(detections)
                 print(f"[DIAGNOSTIC 4] Number of detections AFTER confidence filtering (threshold={conf_threshold}): {count}")
-                
+
                 # Determine severity based on count
                 if count >= 3:
                     severity = "HIGH"

@@ -1,7 +1,8 @@
 import os
 import uuid
 import shutil
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+import time
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from services.detector import CivicDetector
@@ -36,6 +37,28 @@ app.mount("/results", StaticFiles(directory=RESULT_DIR), name="results")
 # Initialize Detector pointing to real model CivicWatch_FINAL_best.pt
 detector = CivicDetector(model_path="model/CivicWatch_FINAL_best.pt")
 
+def cleanup_file_pair(upload_path: str, result_path: str, delay_seconds: int = 120):
+    """
+    Deletes the temporary upload file and annotated result file after a safety delay 
+    (default 120 seconds) to ensure the frontend/backend has finished downloading 
+    and displaying the image assets.
+    """
+    if delay_seconds > 0:
+        time.sleep(delay_seconds)
+    try:
+        if os.path.exists(upload_path):
+            os.remove(upload_path)
+            print(f"[POST-REQUEST CLEANUP] Deleted upload image: {upload_path}")
+    except Exception as err:
+        print(f"[POST-REQUEST CLEANUP ERROR] Could not delete {upload_path}: {err}")
+
+    try:
+        if os.path.exists(result_path):
+            os.remove(result_path)
+            print(f"[POST-REQUEST CLEANUP] Deleted result image: {result_path}")
+    except Exception as err:
+        print(f"[POST-REQUEST CLEANUP ERROR] Could not delete {result_path}: {err}")
+
 @app.get("/")
 def read_root():
     return {
@@ -49,6 +72,7 @@ def read_root():
 
 @app.post("/predict")
 async def predict(
+    background_tasks: BackgroundTasks,
     image: UploadFile = File(...),
     confidence: float = Form(0.10)
 ):
@@ -89,6 +113,11 @@ async def predict(
         )
         
         if not success:
+            # Cleanup immediately if detection failed
+            if os.path.exists(upload_path):
+                os.remove(upload_path)
+            if os.path.exists(result_path):
+                os.remove(result_path)
             raise HTTPException(status_code=500, detail="Object detection failed.")
             
         response_payload = {
@@ -100,13 +129,18 @@ async def predict(
             "annotatedImageUrl": f"/results/{result_filename}"
         }
         
+        # Schedule post-response cleanup in background after safety delay (120s)
+        background_tasks.add_task(cleanup_file_pair, upload_path, result_path, delay_seconds=120)
+
         print(f"[DIAGNOSTIC 5] Exact JSON response returned by /predict: {response_payload}")
         print(f"=======================================================================\n")
         return response_payload
     except Exception as e:
-        # Clean up uploaded file in case of error
+        # Clean up files in case of error
         if os.path.exists(upload_path):
             os.remove(upload_path)
+        if os.path.exists(result_path):
+            os.remove(result_path)
         raise HTTPException(status_code=500, detail=f"Error running detection: {str(e)}")
 
 if __name__ == "__main__":

@@ -537,47 +537,14 @@ app.post('/api/issues/:id/verify', upload.single('image'), async (req, res) => {
       fs.unlinkSync(tempFilePath);
     }
 
-    // Node side simulation fallback for verification
-    // For demo purposes, we can see if the user uploaded an image. If they did, let's say it passed
-    // unless they specifically upload a file with the name containing "dirty" or "garbage" or similar.
-    // That gives a perfect, controlled hackathon demo!
-    const isDirty = req.file.originalname.toLowerCase().includes('dirty') || req.file.originalname.toLowerCase().includes('garbage');
-    
-    if (isDirty) {
-      issue.history.push({
-        status: 'RESOLVED',
-        message: 'AI Verification FAILED (Simulated). Garbage still detected on site.',
-        user: 'System AI'
-      });
-      await issue.save();
-      
-      return res.json({
-        success: false,
-        verified: false,
-        message: 'Verification FAILED! AI detected remaining garbage piles at the site (Simulated).',
-        detections: [{ class: 'Garbage', confidence: 0.89, bbox: { x1: 50, y1: 50, x2: 200, y2: 200 } }]
-      });
-    } else {
-      issue.status = 'CLOSED';
-      issue.history.push({
-        status: 'AI VERIFIED',
-        message: 'AI Verification PASSED (Simulated). No garbage detected.',
-        user: 'System AI'
-      });
-      issue.history.push({
-        status: 'CLOSED',
-        message: 'Issue closed automatically (Simulated).',
-        user: 'System AI'
-      });
-      await issue.save();
-      
-      return res.json({
-        success: true,
-        verified: true,
-        message: 'Verification PASSED! No garbage detected (Simulated). Issue closed.',
-        detections: []
-      });
-    }
+    // Return honest error - do NOT fabricate detection results
+    return res.status(200).json({
+      success: false,
+      verified: false,
+      ai_service_unavailable: true,
+      message: 'AI verification service is temporarily unavailable (cold-starting). Please retry in 30-60 seconds. No detections were simulated.',
+      detections: []
+    });
   }
 });
 

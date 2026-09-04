@@ -154,6 +154,7 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
 
   const tempFilePath = req.file.path;
   const isCloudinaryConfigured = !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+  const startTime = Date.now();
 
   try {
     const confidence = req.body.confidence || req.query.confidence || 0.15;
@@ -167,26 +168,31 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
     formData.append('confidence', Number(confidence));
 
     const finalUrl = `${AI_SERVICE_URL}/predict`;
-    console.log("=== AI REQUEST START ===");
-    console.log("Method: POST");
-    console.log("Final AI Service URL:", finalUrl);
+    console.log("[NODE] Starting AI request to:", finalUrl);
 
     let response;
     try {
-      // Use 12 second timeout so we stay well within Render's 30s gateway limit
+      // Increased timeout to 180,000 ms (3 minutes) to allow Python CPU inference on Render to complete
       response = await axios.post(finalUrl, formData, {
         headers: {
           ...formData.getHeaders()
         },
-        timeout: 12000
+        timeout: 180000
       });
-      console.log("AI Response Status:", response.status, response.statusText);
-      console.log("[DIAGNOSTIC 6] Raw payload received by Node backend from FastAPI /predict:", JSON.stringify(response.data, null, 2));
+
+      const elapsedMs = Date.now() - startTime;
+      console.log(`[NODE] AI response status: ${response.status} ${response.statusText}`);
+      console.log(`[NODE] AI response time: ${elapsedMs} ms`);
+      console.log("[NODE] AI response JSON:", JSON.stringify(response.data, null, 2));
+
     } catch (axiosErr) {
-      console.error("=== AI SERVICE CALL FAILED (or timed out after 12s) ===");
-      console.error("Error Code:", axiosErr.code);
-      console.error("HTTP Status:", axiosErr.response?.status);
-      console.error("Error Message:", axiosErr.message);
+      const elapsedMs = Date.now() - startTime;
+      console.error("=== [NODE] AI SERVICE CALL FAILED ===");
+      console.error("[NODE] AI error message:", axiosErr.message);
+      console.error("[NODE] AI error code:", axiosErr.code);
+      console.error("[NODE] AI HTTP status:", axiosErr.response?.status);
+      console.error("[NODE] AI HTTP response data:", axiosErr.response?.data);
+      console.error(`[NODE] AI elapsed request time: ${elapsedMs} ms`);
       throw axiosErr;
     }
 
@@ -204,21 +210,23 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
         originalImageUrl = originalCloudUrl.secure_url;
 
         // 2. Download annotated image from FastAPI and upload it
-        const annotatedTempPath = path.join(__dirname, 'temp_uploads', `temp_annotated_${Date.now()}_${req.file.originalname}`);
-        const fullAnnotatedUrl = `${AI_SERVICE_URL}${response.data.annotatedImageUrl}`;
-        
-        console.log(`Downloading annotated image from: ${fullAnnotatedUrl}`);
-        await downloadFile(fullAnnotatedUrl, annotatedTempPath);
-        
-        console.log('Uploading annotated image to Cloudinary...');
-        const annotatedCloudUrl = await cloudinary.uploader.upload(annotatedTempPath, {
-          folder: 'civicwatch/annotated'
-        });
-        annotatedImageUrl = annotatedCloudUrl.secure_url;
+        if (response.data.annotatedImageUrl) {
+          const annotatedTempPath = path.join(__dirname, 'temp_uploads', `temp_annotated_${Date.now()}_${req.file.originalname}`);
+          const fullAnnotatedUrl = `${AI_SERVICE_URL}${response.data.annotatedImageUrl}`;
+          
+          console.log(`Downloading annotated image from: ${fullAnnotatedUrl}`);
+          await downloadFile(fullAnnotatedUrl, annotatedTempPath);
+          
+          console.log('Uploading annotated image to Cloudinary...');
+          const annotatedCloudUrl = await cloudinary.uploader.upload(annotatedTempPath, {
+            folder: 'civicwatch/annotated'
+          });
+          annotatedImageUrl = annotatedCloudUrl.secure_url;
 
-        // Clean up temporary annotated file
-        if (fs.existsSync(annotatedTempPath)) {
-          fs.unlinkSync(annotatedTempPath);
+          // Clean up temporary annotated file
+          if (fs.existsSync(annotatedTempPath)) {
+            fs.unlinkSync(annotatedTempPath);
+          }
         }
         console.log('Cloudinary uploads completed successfully.');
       } catch (cloudError) {
@@ -237,44 +245,40 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
       annotatedImageUrl
     };
 
-    console.log("[DIAGNOSTIC 6] Final converted payload sent by Node backend to frontend:", JSON.stringify(finalClientResponse, null, 2));
+    console.log("[NODE] Final response sent to frontend:", JSON.stringify(finalClientResponse, null, 2));
 
-    // Return detection output
-    return res.json(finalClientResponse);
+    // Return detection output with HTTP 200
+    return res.status(200).json(finalClientResponse);
 
   } catch (error) {
-    console.error('Error forwarding to AI service:', error.message);
-    console.log('AI Service unreachable or cold-starting. Returning honest unavailable response (NO fake detections).');
-
-    // Upload the original image to Cloudinary so it's preserved for retry, but do NOT fabricate detections
-    let originalImageUrl = null;
-    try {
-      if (isCloudinaryConfigured && tempFilePath && fs.existsSync(tempFilePath)) {
-        const originalCloudUrl = await cloudinary.uploader.upload(tempFilePath, {
-          folder: 'civicwatch/original'
-        });
-        originalImageUrl = originalCloudUrl.secure_url;
-      }
-    } catch (cloudError) {
-      console.error('Cloudinary upload failed during fallback:', cloudError.message);
-    }
+    const elapsedMs = Date.now() - startTime;
+    console.error(`[NODE] Error forwarding to AI service after ${elapsedMs} ms:`, error.message);
 
     // Clean up temp file
     if (tempFilePath && fs.existsSync(tempFilePath)) {
       fs.unlinkSync(tempFilePath);
     }
 
-    // Return honest response: AI service is down, zero detections, no fabrication
-    return res.status(200).json({
+    // Determine appropriate HTTP error status (504 for timeout, 502 for connection failure)
+    const errorStatusCode = error.response?.status || (error.code === 'ECONNABORTED' ? 504 : 502);
+
+    const errorResponseBody = {
       success: false,
       ai_service_unavailable: true,
+      error: error.message || 'AI Detection Service unavailable or timed out',
+      code: error.code || 'AI_SERVICE_ERROR',
       detections: [],
       count: 0,
       severity: "NONE",
-      originalImageUrl: originalImageUrl,
+      originalImageUrl: null,
       annotatedImageUrl: null,
-      message: "AI detection service is temporarily unavailable (cold-starting). Please retry in 30-60 seconds. No detections were fabricated."
-    });
+      message: "AI detection service is temporarily unavailable (cold-starting or timed out). Please retry in 30-60 seconds."
+    };
+
+    console.log(`[NODE] Final error response sent to frontend (HTTP ${errorStatusCode}):`, JSON.stringify(errorResponseBody, null, 2));
+
+    // Return proper HTTP error status (502 or 504) instead of HTTP 200
+    return res.status(errorStatusCode).json(errorResponseBody);
   }
 });
 

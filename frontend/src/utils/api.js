@@ -26,7 +26,7 @@ export const getFileUrl = (path) => {
 // Axios instance
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000,
+  timeout: 60000,
 });
 
 export const apiService = {

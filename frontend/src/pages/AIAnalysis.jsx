@@ -166,6 +166,17 @@ const AIAnalysis = () => {
     try {
       const result = await apiService.detectGarbage(selectedFile, confidenceThreshold);
       
+      // Check if AI service was unavailable (honest response, no fabrication)
+      if (result.ai_service_unavailable) {
+        setError(
+          isHindi
+            ? 'AI सेवा अस्थायी रूप से अनुपलब्ध है (कोल्ड-स्टार्टिंग)। कृपया 30-60 सेकंड में पुनः प्रयास करें।'
+            : 'AI detection service is temporarily unavailable (cold-starting on Render free tier). Please retry in 30-60 seconds.'
+        );
+        setAnalysisResult(null);
+        return;
+      }
+
       // Filter detections based on threshold
       const filteredDetections = (result.detections || []).filter(
         d => d.confidence >= confidenceThreshold
@@ -180,11 +191,17 @@ const AIAnalysis = () => {
         severity = 'MEDIUM';
       }
 
+      // If YOLO returned zero detections, severity should be NONE
+      if (count === 0) {
+        severity = 'NONE';
+      }
+
       setAnalysisResult({
         ...result,
         detections: filteredDetections,
         count,
-        severity
+        severity,
+        garbage_detected: count > 0
       });
     } catch (err) {
       console.error(err);
@@ -428,7 +445,47 @@ const AIAnalysis = () => {
                   AI Prediction Results
                 </h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {analysisResult.count === 0 ? (
+                  /* ── Zero Detections: Clean Image ── */
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="w-16 h-16 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 rounded-2xl flex items-center justify-center text-emerald-500 mb-4">
+                      <CheckCircle2 size={32} />
+                    </div>
+                    <h4 className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                      No Garbage Detected
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-sm">
+                      The YOLO model found <span className="font-bold text-slate-700 dark:text-slate-200">0 objects</span> matching the garbage class at the current confidence threshold of <span className="font-mono font-bold text-indigo-600">{Math.round(confidenceThreshold * 100)}%</span>.
+                    </p>
+                    <div className="mt-4 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-100 dark:border-slate-800/60 text-left w-full max-w-sm">
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Objects Count:</span>
+                          <span className="font-bold text-slate-800 dark:text-white">0</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Severity:</span>
+                          <span className="font-bold text-emerald-500 uppercase">NONE</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Action Required:</span>
+                          <span className="font-bold text-emerald-500">None</span>
+                        </div>
+                      </div>
+                    </div>
+                    {analysisResult.annotatedImageUrl && (
+                      <div className="mt-4 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950 max-w-sm w-full">
+                        <img 
+                          src={getFileUrl(analysisResult.annotatedImageUrl)} 
+                          alt="Scanned image (no detections)" 
+                          className="max-h-48 object-contain w-full"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* ── Detections Found ── */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Bounding box image */}
                   <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950 flex items-center justify-center">
                     <img 
@@ -445,7 +502,7 @@ const AIAnalysis = () => {
                       <div className="mt-2 space-y-2">
                         <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/80 pb-1.5 text-xs">
                           <span className="text-slate-500">Object Type:</span>
-                          <span className="font-bold text-slate-800 dark:text-white">Garbage</span>
+                          <span className="font-bold text-slate-800 dark:text-white">{analysisResult.detections[0]?.class || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/80 pb-1.5 text-xs">
                           <span className="text-slate-500">Confidence Score:</span>
@@ -472,7 +529,7 @@ const AIAnalysis = () => {
                       </div>
                     </div>
 
-                    {/* Confidence Meter (Section 12) */}
+                    {/* Confidence Meter */}
                     <div>
                       <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Confidence Meter</h4>
                       {(() => {
@@ -505,10 +562,12 @@ const AIAnalysis = () => {
                       })()}
                     </div>
                   </div>
-                </div>
+                  </div>
+                )}
               </div>
 
-              {/* Smart Department Routing Card (Section 14) */}
+              {/* Smart Department Routing Card — Only shown when garbage is detected */}
+              {analysisResult.count > 0 && (
               <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
                 <h3 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <Building2 size={15} /> Smart Routing Engine
@@ -530,8 +589,10 @@ const AIAnalysis = () => {
                   </div>
                 </div>
               </div>
+              )}
 
-              {/* Action Buttons */}
+              {/* Action Buttons — Only shown when garbage is detected */}
+              {analysisResult.count > 0 && (
               <div className="flex gap-3">
                 {createdIssueId ? (
                   <div className="w-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-150 dark:border-emerald-900/50 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -709,6 +770,7 @@ const AIAnalysis = () => {
                   </>
                 )}
               </div>
+              )}
             </div>
           ) : (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 h-full min-h-[400px] flex flex-col items-center justify-center text-center shadow-sm">

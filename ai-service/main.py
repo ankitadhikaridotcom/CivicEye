@@ -52,6 +52,10 @@ async def predict(
     image: UploadFile = File(...),
     confidence: float = Form(0.15)
 ):
+    print(f"\n==================== [AI-SERVICE /predict REQUEST] ====================")
+    print(f"[DIAGNOSTIC 1] Confidence threshold received by FastAPI: {confidence} (type: {type(confidence).__name__})")
+    print(f"[DIAGNOSTIC 1] Uploaded image filename: {image.filename}, Content-Type: {image.content_type}")
+
     # Validate file type
     content_type = image.content_type
     if content_type not in ["image/jpeg", "image/png", "image/webp", "image/jpg"]:
@@ -86,8 +90,7 @@ async def predict(
         if not success:
             raise HTTPException(status_code=500, detail="Object detection failed.")
             
-        # Return response
-        return {
+        response_payload = {
             "success": True,
             "detections": detections,
             "count": count,
@@ -95,6 +98,10 @@ async def predict(
             "originalImageUrl": f"/uploads/{filename}",
             "annotatedImageUrl": f"/results/{result_filename}"
         }
+        
+        print(f"[DIAGNOSTIC 5] Exact JSON response returned by /predict: {response_payload}")
+        print(f"=======================================================================\n")
+        return response_payload
     except Exception as e:
         # Clean up uploaded file in case of error
         if os.path.exists(upload_path):

@@ -42,7 +42,30 @@ class CivicDetector:
         # If real YOLO model is available
         if ULTRALYTICS_AVAILABLE and self.model is not None:
             try:
-                # Run real YOLO inference
+                print(f"[DIAGNOSTIC] Starting YOLO inference on {image_path} with conf_threshold={conf_threshold}")
+                # Run YOLO inference with minimal threshold (0.01) to capture raw detections for diagnostics
+                raw_results = self.model(image_path, conf=0.01)
+                
+                raw_detections_count = 0
+                raw_list = []
+                for result in raw_results:
+                    boxes = result.boxes
+                    for box in boxes:
+                        raw_detections_count += 1
+                        conf = float(box.conf[0])
+                        cls = int(box.cls[0])
+                        class_name = self.model.names.get(cls, f"Class_{cls}") if hasattr(self.model, 'names') else f"Class_{cls}"
+                        raw_list.append({
+                            "cls_id": cls,
+                            "class_name": class_name,
+                            "confidence": round(conf, 4)
+                        })
+                
+                print(f"[DIAGNOSTIC 2] Number of YOLO detections BEFORE custom filtering: {raw_detections_count}")
+                for idx, item in enumerate(raw_list):
+                    print(f"[DIAGNOSTIC 3] Raw Detection #{idx+1} -> Class ID: {item['cls_id']}, Class Name: '{item['class_name']}', Confidence: {item['confidence']}")
+
+                # Now process results with the actual conf_threshold
                 results = self.model(image_path, conf=conf_threshold)
                 annotated_img = image.copy()
                 
@@ -78,6 +101,7 @@ class CivicDetector:
                 
                 cv2.imwrite(output_path, annotated_img)
                 count = len(detections)
+                print(f"[DIAGNOSTIC 4] Number of detections AFTER confidence filtering (threshold={conf_threshold}): {count}")
                 
                 # Determine severity based on count
                 if count >= 3:

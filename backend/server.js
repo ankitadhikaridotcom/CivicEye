@@ -181,6 +181,7 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
         timeout: 12000
       });
       console.log("AI Response Status:", response.status, response.statusText);
+      console.log("[DIAGNOSTIC 6] Raw payload received by Node backend from FastAPI /predict:", JSON.stringify(response.data, null, 2));
     } catch (axiosErr) {
       console.error("=== AI SERVICE CALL FAILED (or timed out after 12s) ===");
       console.error("Error Code:", axiosErr.code);
@@ -230,12 +231,16 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
       fs.unlinkSync(tempFilePath);
     }
 
-    // Return detection output
-    return res.json({
+    const finalClientResponse = {
       ...response.data,
       originalImageUrl,
       annotatedImageUrl
-    });
+    };
+
+    console.log("[DIAGNOSTIC 6] Final converted payload sent by Node backend to frontend:", JSON.stringify(finalClientResponse, null, 2));
+
+    // Return detection output
+    return res.json(finalClientResponse);
 
   } catch (error) {
     console.error('Error forwarding to AI service:', error.message);

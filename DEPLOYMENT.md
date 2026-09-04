@@ -1,6 +1,6 @@
 # 🚀 Complete Full-Stack Deployment Guide for CivicEye AI
 
-This guide covers deploying the entire **CivicEye AI Command Center** (Python AI Service + Node Express Backend + React Vite Frontend + MongoDB Atlas + Cloudinary).
+This guide covers deploying the entire **CivicEye AI Command Center** (Python AI Service + Node Express Backend + React Vite Frontend + MongoDB Atlas + Local Disk Storage).
 
 ---
 
@@ -12,7 +12,7 @@ This guide covers deploying the entire **CivicEye AI Command Center** (Python AI
 | **Express Backend** | Node.js + Express | **Render** / Railway | FREE |
 | **AI Service** | Python + FastAPI + YOLOv8 | **Render** / Railway | FREE |
 | **Database** | MongoDB Atlas | **MongoDB Atlas Cloud** | FREE |
-| **Media Storage** | Cloudinary CDN | **Cloudinary** | FREE |
+| **Media Storage** | Local Disk Storage | **App Server** | FREE |
 
 ---
 
@@ -43,7 +43,7 @@ This guide covers deploying the entire **CivicEye AI Command Center** (Python AI
    - **Root Directory**: `ai-service`
    - **Environment**: `Python 3`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1`
 5. Click **Create Web Service**.
 6. Copy your deployed AI Service URL once live (e.g., `https://civiceye-ai-service.onrender.com`).
 
@@ -63,9 +63,6 @@ This guide covers deploying the entire **CivicEye AI Command Center** (Python AI
    - `PORT` = `5000`
    - `MONGODB_URI` = `mongodb+srv://ankit:ankit@cluster0.gastdvy.mongodb.net/?appName=Cluster0`
    - `AI_SERVICE_URL` = `https://civiceye-ai-service.onrender.com` *(Use URL from Step 2)*
-   - `CLOUDINARY_CLOUD_NAME` = `your_actual_cloud_name`
-   - `CLOUDINARY_API_KEY` = `173988344655914`
-   - `CLOUDINARY_API_SECRET` = `_qhpmYjmwqzdXNjBEIKXsBb49PM`
 5. Click **Create Web Service**.
 6. Copy your deployed Backend URL once live (e.g., `https://civiceye-h7ee.onrender.com`).
 
@@ -97,4 +94,5 @@ This guide covers deploying the entire **CivicEye AI Command Center** (Python AI
 - **Backend API**: `https://civiceye-h7ee.onrender.com/api/issues`
 - **AI YOLO Detection**: `https://civiceye-ai-service.onrender.com/predict`
 - **Database**: MongoDB Atlas Cloud
-- **Media CDN**: Cloudinary Cloud Storage
+- **Media Storage**: Local Server Storage
+

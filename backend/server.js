@@ -7,7 +7,6 @@ const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
-const cloudinary = require('cloudinary').v2;
 
 // Load environment variables
 dotenv.config();
@@ -27,37 +26,11 @@ const AI_SERVICE_URL = getAiServiceUrl();
 
 console.log('==================================================');
 console.log(`[CONFIG] Node Backend Initializing...`);
-console.log(`[CONFIG] Deploy Version: v2.0.0-no-fallback`);
+console.log(`[CONFIG] Deploy Version: v2.1.0-local-storage`);
 console.log(`[CONFIG] AI Service Target URL: ${AI_SERVICE_URL}`);
+console.log(`[CONFIG] Storage Mode: LOCAL STORAGE ONLY (Cloudinary Removed)`);
 console.log(`[CONFIG] Fake fallback detections: DISABLED`);
 console.log('==================================================');
-
-// Configure Cloudinary if credentials exist
-if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-  });
-  console.log('Cloudinary integration: ACTIVATED');
-} else {
-  console.log('Cloudinary integration: DEACTIVATED (using local storage)');
-}
-
-// Helper function to download files from FastAPI for Cloudinary upload
-const downloadFile = async (url, outputPath) => {
-  const writer = fs.createWriteStream(outputPath);
-  const response = await axios({
-    url,
-    method: 'GET',
-    responseType: 'stream'
-  });
-  response.data.pipe(writer);
-  return new Promise((resolve, reject) => {
-    writer.on('finish', resolve);
-    writer.on('error', reject);
-  });
-};
 
 // Middleware
 app.use(cors());
@@ -200,43 +173,8 @@ app.post('/api/detect', upload.single('image'), async (req, res) => {
       throw axiosErr;
     }
 
-    let originalImageUrl = response.data.originalImageUrl;
-    let annotatedImageUrl = response.data.annotatedImageUrl;
-
-    // If Cloudinary is configured, upload both images
-    if (isCloudinaryConfigured && response.data.success) {
-      try {
-        console.log('Cloudinary is configured. Uploading images to Cloudinary...');
-        // 1. Upload original image (tempFilePath)
-        const originalCloudUrl = await cloudinary.uploader.upload(tempFilePath, {
-          folder: 'civicwatch/original'
-        });
-        originalImageUrl = originalCloudUrl.secure_url;
-
-        // 2. Download annotated image from FastAPI and upload it
-        if (response.data.annotatedImageUrl) {
-          const annotatedTempPath = path.join(__dirname, 'temp_uploads', `temp_annotated_${Date.now()}_${req.file.originalname}`);
-          const fullAnnotatedUrl = `${AI_SERVICE_URL}${response.data.annotatedImageUrl}`;
-          
-          console.log(`Downloading annotated image from: ${fullAnnotatedUrl}`);
-          await downloadFile(fullAnnotatedUrl, annotatedTempPath);
-          
-          console.log('Uploading annotated image to Cloudinary...');
-          const annotatedCloudUrl = await cloudinary.uploader.upload(annotatedTempPath, {
-            folder: 'civicwatch/annotated'
-          });
-          annotatedImageUrl = annotatedCloudUrl.secure_url;
-
-          // Clean up temporary annotated file
-          if (fs.existsSync(annotatedTempPath)) {
-            fs.unlinkSync(annotatedTempPath);
-          }
-        }
-        console.log('Cloudinary uploads completed successfully.');
-      } catch (cloudError) {
-        console.error('Failed to upload to Cloudinary, falling back to local paths:', cloudError.message);
-      }
-    }
+    const originalImageUrl = response.data.originalImageUrl;
+    const annotatedImageUrl = response.data.annotatedImageUrl;
 
     // Clean up original temp file
     if (fs.existsSync(tempFilePath)) {

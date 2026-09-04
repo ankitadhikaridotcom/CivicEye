@@ -84,7 +84,8 @@ async def predict(
         success, detections, count, severity = detector.detect(
             upload_path, 
             result_path, 
-            conf_threshold=confidence
+            conf_threshold=confidence,
+            imgsz=416
         )
         
         if not success:
